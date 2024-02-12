@@ -29,8 +29,9 @@ func listCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			out := fmt.Sprintf("%v", ds)
-			slog.Info(out)
+			for _, item := range ds {
+				fmt.Printf("%v\n", item)
+			}
 			return nil
 		},
 	}
