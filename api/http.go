@@ -2,6 +2,7 @@ package api
 
 import (
 	"io"
+	"log/slog"
 	"net/http"
 
 	"github.com/jylitalo/grafana-dashboard-sync/config"
@@ -9,7 +10,7 @@ import (
 
 func getBody(target config.Grafana, path string) ([]byte, error) {
 	bearer := "Bearer " + target.Bearer
-	url := target.URL + "/api/datasources"
+	url := target.URL + path
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -23,5 +24,7 @@ func getBody(target config.Grafana, path string) ([]byte, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	return io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	slog.Debug("api.getBody", "body", body, "err", err)
+	return body, err
 }

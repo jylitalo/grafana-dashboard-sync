@@ -25,10 +25,30 @@ func listCmd() *cobra.Command {
 			if !ok {
 				slog.Error("Server not found from config", "server", server)
 			}
+			dashdbs, err := api.DashDBs(server)
+			if err != nil {
+				return err
+			}
+			fmt.Println("DashDBs:")
+			for _, item := range dashdbs {
+				fmt.Printf("%v\n", item)
+			}
+			fmt.Println("DashboardVersions:")
+			for _, item := range dashdbs {
+				dashversions, err := api.DashboardVersions(server, item.UID)
+				if err != nil {
+					return err
+				}
+				fmt.Printf("DashboardVersions (%s):\n", item.UID)
+				for _, subItem := range dashversions {
+					fmt.Printf("%v\n", subItem)
+				}
+			}
 			ds, err := api.DataSources(server)
 			if err != nil {
 				return err
 			}
+			fmt.Println("Data sources:")
 			for _, item := range ds {
 				fmt.Printf("%v\n", item)
 			}
