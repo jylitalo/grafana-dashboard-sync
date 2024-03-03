@@ -164,14 +164,18 @@ func GetDashboards(grafana config.Grafana) ([]Dashboard, error) {
 
 func (board *Dashboard) GetJSON() (DashboardJSON, error) {
 	path := fmt.Sprintf("/api/dashboards/uid/%s", board.UID)
-	source := DashboardJSON{}
 	body, err := getBody(board.grafana, path)
 	if err != nil {
-		return source, err
+		return DashboardJSON{}, err
 	}
-	err = json.Unmarshal(body, &source)
+	return parseDashboardJSON(body)
+}
+
+func parseDashboardJSON(body []byte) (DashboardJSON, error) {
+	source := DashboardJSON{}
+	err := json.Unmarshal(body, &source)
 	if err != nil {
-		slog.Error("GetDashboard", "body", body, "err", err)
+		slog.Error("parseDashboardJSON", "body", body, "err", err)
 	}
 	return source, err
 }

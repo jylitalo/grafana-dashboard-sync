@@ -1,6 +1,8 @@
 package api
 
 import (
+	_ "embed"
+	"errors"
 	"fmt"
 	"testing"
 )
@@ -16,6 +18,12 @@ var flatPanelList = []Panel{
 	{Id: 8},
 	{Id: 9},
 }
+
+//go:embed test-data/instances_closed.json
+var instancesClosed string
+
+//go:embed test-data/instances_open.json
+var instancesOpen string
 
 var treePanelList = []Panel{
 	{Id: 1, Panels: []Panel{{Id: 2}}},
@@ -51,5 +59,20 @@ func TestFlattenDashboard(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestRealFlattenDashboard(t *testing.T) {
+	closedRows, errClosed := parseDashboardJSON([]byte(instancesClosed))
+	openRows, errOpen := parseDashboardJSON([]byte(instancesOpen))
+	if err := errors.Join(errOpen, errClosed); err != nil {
+		if err != nil {
+			t.Fatalf("errs found errOpen=%v, errClosed=%v", errOpen, errClosed)
+		}
+	}
+	closedPanels := closedRows.Flatten()
+	openPanels := openRows.Flatten()
+	if len(closedPanels) != len(openPanels) {
+		t.Fatalf("panel list length don't match (%d vs. %d)", len(closedPanels), len(openPanels))
 	}
 }
