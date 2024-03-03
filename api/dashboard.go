@@ -32,101 +32,85 @@ type Dashboard struct {
 	grafana   config.Grafana
 }
 
-//	{
-//		"meta":{...},
-//		"dashboard":{
-//			"annotations":{
-//		 		"list":[{
-//					"builtIn":1,"datasource":{"type":"grafana","uid":"-- Grafana --"},
-//					"enable":true,"hide":true,"iconColor":"rgba(0, 211, 255, 1)",
-//					"name":"Annotations \u0026 Alerts",
-//					"type":"dashboard"
-//				}]
-//			},
-//			"editable":true,"fiscalYearStartMonth":0,"graphTooltip":0,"id":3,"links":[],
-//			"liveNow":false,
-//			"panels":[
-//				{
-//					"datasource":{
-//						"type":"prometheus", "uid":"f5976bf5-7c7a-4606-b2f5-311e2c9a02d9"
-//					},
-//					"fieldConfig":{
-//						"defaults":{
-//							"mappings":[],"thresholds":{
-//								"mode":"percentage","steps":[
-//									{"color":"green","value":null},
-//									{"color":"orange","value":70},
-//									{"color":"red","value":85}
-//								]
-//							},
-//							"unit":"percentunit","unitScale":true
-//						},
-//						"overrides":[]
-//					},
-//					"gridPos":{"h":6,"w":4,"x":0,"y":0},
-//					"id":3,
-//					"options":{
-//						"minVizHeight":75,"minVizWidth":75,"orientation":"auto",
-//						"reduceOptions":{
-//							"calcs":["lastNotNull"],"fields":"","values":false
-//						},
-//						"showThresholdLabels":false,"showThresholdMarkers":true,"sizing":"auto"
-//					},
-//					"pluginVersion":"10.3.1",
-//					"targets":[
-//						{
-//							"datasource":{
-//								"type":"prometheus","uid":"f5976bf5-7c7a-4606-b2f5-311e2c9a02d9"
-//							},
-//							"disableTextWrap":false,"editorMode":"code",
-//							"expr":"max(container_memory_usage_bytes{pod=~\"$App.*\"})/max(container_spec_memory_limit_bytes{pod=~\"$App.*\"})",
-//							"fullMetaSearch":false,"includeNullMetadata":true,"instant":false,
-//							"legendFormat":"Used","range":true,"refId":"A","useBackend":false
-//						}
-//					],
-//					"title":"Memory usage","type":"gauge"
-//				},
-//				...
-//			],
-//			"time":{"from":"now-24h","to":"now"},"timepicker":{},"timezone":"",
-//			"title":"App Debug","uid":"c0be4e42-43fc-4f37-8e5f-f7d70f58284e",
-//			"version":31,"weekStart":""
-//		}
-//	}
+// DashDataSource is part of Target
 type DashDataSource struct {
 	Type string `json:"type"`
 	UID  string `json:"uid"`
 }
 
+// Target is part of Panel
 type Target struct {
 	DataSource          DashDataSource `json:"datasource"`
 	DisableTextWrap     bool           `json:"disableTextWrap"`
 	EditorMode          string         `json:"editorMode"`
 	Expr                string         `json:"expr"`
 	FullMetaSearch      bool           `json:"fullMetaSearch"`
+	Hide                interface{}    `json:"hide,omitempty"`
 	IncludeNullMetadata bool           `json:"includeNullMetadata"`
 	Instant             bool           `json:"instant"`
+	Interval            interface{}    `json:"interval,omitempty"`
 	LegendFormat        string         `json:"legendFormat"`
 	Range               bool           `json:"range"`
 	RefId               string         `json:"refId"`
 	UseBackend          bool           `json:"useBackend"`
 }
 
+// Panel is part of DashboardJSON.Dashboard.Panels
 type Panel struct {
-	DataSource    interface{} `json:"datasource"` // string or DashDataSource
-	FieldConfig   interface{} `json:"fieldConfig"`
+	DataSource    interface{} `json:"datasource,omitempty"` // string or DashDataSource
+	Description   interface{} `json:"description,omitempty"`
+	FieldConfig   interface{} `json:"fieldConfig,omitempty"`
+	Collapsed     interface{} `json:"collapsed,omitempty"`
 	GridPos       interface{} `json:"gridPos"`
 	Id            int         `json:"id"`
-	Options       interface{} `json:"options"`
-	PluginVersion string      `json:"pluginVersion"`
-	Targets       []Target    `json:"targets"`
+	Options       interface{} `json:"options,omitempty"`
+	PluginVersion string      `json:"pluginVersion,omitempty"`
+	Targets       []Target    `json:"targets,omitempty"`
+	Panels        []Panel     `json:"panels"`
 	Title         string      `json:"title"`
 	Type          string      `json:"type"`
-	Panels        []Panel     `json:"panels"`
 }
 
+// AnnotationsPermissions is part of DashboardJSON.Meta
+type AnnotationsPermissions struct {
+	CanAdd    bool `json:"canAdd"`
+	CanEdit   bool `json:"canEdit"`
+	CanDelete bool `json:"canDelete"`
+}
+
+// DashboardJSON is JSON presentation of actual dashboard.
+// You can find examples from
+// - test-data/instances_closed.json
+// - test-case/instances_open.json
 type DashboardJSON struct {
-	Meta      interface{} `json:"meta"`
+	Meta struct {
+		Type                   string `json:"type"`
+		CanSave                bool   `json:"canSave"`
+		CanEdit                bool   `json:"canEdit"`
+		CanAdmin               bool   `json:"canAdmin"`
+		CanStar                bool   `json:"canStar"`
+		CanDelete              bool   `json:"canDelete"`
+		Slug                   string `json:"slug"`
+		URL                    string `json:"url"`
+		Expires                string `json:"expires"`
+		Created                string `json:"created"`
+		Updated                string `json:"updated"`
+		UpdatedBy              string `json:"updatedBy"`
+		CreatedBy              string `json:"createdBy"`
+		Version                int    `json:"version"`
+		HasACL                 bool   `json:"hasAcl"`
+		IsFolder               bool   `json:"isFolder"`
+		FolderId               int    `json:"folderId"`
+		FolderUID              string `json:"folderUid"`
+		FolderTitle            string `json:"folderTitle"`
+		FolderURL              string `json:"folderUrl"`
+		Provisioned            bool   `json:"provisioned"`
+		ProvisionedExternalId  string `json:"provisionedExternalId"`
+		AnnotationsPermissions struct {
+			Dashboard    AnnotationsPermissions `json:"dashboard"`
+			Organization AnnotationsPermissions `json:"organization"`
+		} `json:"annotationsPermissions"`
+	} `json:"meta"`
 	Dashboard struct {
 		Annotations           interface{} `json:"annotations"`
 		Editable              bool        `json:"editable"`
@@ -136,6 +120,10 @@ type DashboardJSON struct {
 		Links                 interface{} `json:"links"`
 		LiveNow               bool        `json:"liveNow"`
 		Panels                []Panel     `json:"panels"`
+		Refresh               string      `json:"refresh"`
+		SchemaVersion         int         `json:"schemaVersion"`
+		Tags                  interface{} `json:"tags"`
+		Templating            interface{} `json:"templating"`
 		Time                  interface{} `json:"time"`
 		TimePicker            interface{} `json:"timepicker"`
 		TimeZone              string      `json:"timezone"`
@@ -189,6 +177,51 @@ func (panel *Panel) Flatten() []Panel {
 	}
 	return flat
 }
+
+// ToMarshalJSON deals with the fact that `row` should have
+// `"panels": []` if panels is empty or nil.
+// Otherwise panels should be omitted from output.
+func (panel *Panel) MarshalJSON() ([]byte, error) {
+	if panel.Type == "row" {
+		type Alias Panel
+		if panel.Panels == nil {
+			panel.Panels = []Panel{}
+		}
+		return json.Marshal(&struct {
+			*Alias
+		}{
+			Alias: (*Alias)(panel),
+		})
+	}
+	// cpanel should be copy of Panel without Panels field
+	cpanel := struct {
+		DataSource    interface{} `json:"datasource,omitempty"` // string or DashDataSource
+		Description   interface{} `json:"description,omitempty"`
+		FieldConfig   interface{} `json:"fieldConfig,omitempty"`
+		Collapsed     interface{} `json:"collapsed,omitempty"`
+		GridPos       interface{} `json:"gridPos"`
+		Id            int         `json:"id"`
+		Options       interface{} `json:"options,omitempty"`
+		PluginVersion string      `json:"pluginVersion,omitempty"`
+		Targets       []Target    `json:"targets,omitempty"`
+		Title         string      `json:"title"`
+		Type          string      `json:"type"`
+	}{
+		DataSource:    panel.DataSource,
+		Description:   panel.Description,
+		FieldConfig:   panel.FieldConfig,
+		Collapsed:     panel.Collapsed,
+		GridPos:       panel.GridPos,
+		Id:            panel.Id,
+		Options:       panel.Options,
+		PluginVersion: panel.PluginVersion,
+		Targets:       panel.Targets,
+		Title:         panel.Title,
+		Type:          panel.Type,
+	}
+	return json.Marshal(cpanel)
+}
+
 func (dashboard *DashboardJSON) Flatten() []Panel {
 	flat := []Panel{}
 	for _, item := range dashboard.Dashboard.Panels {

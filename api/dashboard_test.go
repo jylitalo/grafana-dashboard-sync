@@ -2,6 +2,7 @@ package api
 
 import (
 	_ "embed"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"testing"
@@ -66,13 +67,30 @@ func TestRealFlattenDashboard(t *testing.T) {
 	closedRows, errClosed := parseDashboardJSON([]byte(instancesClosed))
 	openRows, errOpen := parseDashboardJSON([]byte(instancesOpen))
 	if err := errors.Join(errOpen, errClosed); err != nil {
-		if err != nil {
-			t.Fatalf("errs found errOpen=%v, errClosed=%v", errOpen, errClosed)
-		}
+		t.Errorf("errs found errOpen=%v, errClosed=%v", errOpen, errClosed)
 	}
 	closedPanels := closedRows.Flatten()
 	openPanels := openRows.Flatten()
 	if len(closedPanels) != len(openPanels) {
-		t.Fatalf("panel list length don't match (%d vs. %d)", len(closedPanels), len(openPanels))
+		t.Errorf("panel list length don't match (%d vs. %d)", len(closedPanels), len(openPanels))
+	}
+}
+
+func TestParseDashboardJSON(t *testing.T) {
+	items := []string{instancesClosed, instancesOpen}
+	for idx, item := range items {
+		t.Run(fmt.Sprintf("TestParseDashboardJSON.%d", idx), func(t *testing.T) {
+			inStruct, err := parseDashboardJSON([]byte(item))
+			if err != nil {
+				t.Errorf("parseDashboardJSON failed due to %v", err)
+			}
+			inJSON, err := json.Marshal(inStruct)
+			if err != nil {
+				t.Errorf("Marshal failed due to %v", err)
+			}
+			if string(inJSON) != item {
+				t.Errorf("Not match ... %s", inJSON)
+			}
+		})
 	}
 }
