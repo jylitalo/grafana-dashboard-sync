@@ -18,7 +18,7 @@ import (
 //	...
 //
 // ]
-type DashDB struct {
+type Dashboard struct {
 	Id        int      `json:"id"`
 	UID       string   `json:"uid"`
 	Title     string   `json:"title"`
@@ -29,6 +29,7 @@ type DashDB struct {
 	Tags      []string `json:"tags"`
 	IsStarred bool     `json:"isStarred"`
 	SortMeta  int      `json:"sortMeta"`
+	grafana   config.Grafana
 }
 
 //	{
@@ -124,7 +125,7 @@ type Panel struct {
 	Panels        []Panel     `json:"panels"`
 }
 
-type Dashboard struct {
+type DashboardJSON struct {
 	Meta      interface{} `json:"meta"`
 	Dashboard struct {
 		Annotations           interface{} `json:"annotations"`
@@ -145,20 +146,26 @@ type Dashboard struct {
 	} `json:"dashboard"`
 }
 
-func GetDashDBs(target config.Grafana) ([]DashDB, error) {
-	body, err := getBody(target, "/api/search?query=&type=dash-db")
+func GetDashboards(grafana config.Grafana) ([]Dashboard, error) {
+	body, err := getBody(grafana, "/api/search?query=&type=dash-db")
 	if err != nil {
 		return nil, err
 	}
-	sources := []DashDB{}
+	sources := []Dashboard{}
 	err = json.Unmarshal(body, &sources)
-	return sources, err
+	if err != nil {
+		return sources, err
+	}
+	for key := range sources {
+		sources[key].grafana = grafana
+	}
+	return sources, nil
 }
 
-func GetDashboard(target config.Grafana, uid string) (Dashboard, error) {
-	path := fmt.Sprintf("/api/dashboards/uid/%s", uid)
-	source := Dashboard{}
-	body, err := getBody(target, path)
+func (board *Dashboard) GetJSON() (DashboardJSON, error) {
+	path := fmt.Sprintf("/api/dashboards/uid/%s", board.UID)
+	source := DashboardJSON{}
+	body, err := getBody(board.grafana, path)
 	if err != nil {
 		return source, err
 	}
@@ -167,4 +174,21 @@ func GetDashboard(target config.Grafana, uid string) (Dashboard, error) {
 		slog.Error("GetDashboard", "body", body, "err", err)
 	}
 	return source, err
+}
+
+func (panel *Panel) Flatten() []Panel {
+	flat := []Panel{*panel}
+	if panel.Panels != nil {
+		for _, item := range panel.Panels {
+			flat = append(flat, item.Flatten()...)
+		}
+	}
+	return flat
+}
+func (dashboard *DashboardJSON) Flatten() []Panel {
+	flat := []Panel{}
+	for _, item := range dashboard.Dashboard.Panels {
+		flat = append(flat, item.Flatten()...)
+	}
+	return flat
 }

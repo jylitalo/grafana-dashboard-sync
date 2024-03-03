@@ -24,14 +24,14 @@ func listCmd() *cobra.Command {
 			if !ok {
 				return fmt.Errorf("server (%s) not found from config", args[0])
 			}
-			dashdbs, err := api.GetDashDBs(server)
+			dashdbs, err := api.GetDashboards(server)
 			if err != nil {
 				return err
 			}
 			fmt.Println("Dashboards:")
 			for _, item := range dashdbs {
 				fmt.Printf("DashDB (%s): %v\n", item.Title, item)
-				dboard, err := api.GetDashboard(server, item.UID)
+				dboard, err := item.GetJSON()
 				if err != nil {
 					return err
 				}

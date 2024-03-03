@@ -11,8 +11,8 @@ import (
 )
 
 type board struct {
-	dashDB api.DashDB
-	board  api.Dashboard
+	db   api.Dashboard
+	json api.DashboardJSON
 }
 
 func panelTitles(panels []api.Panel) string {
@@ -23,21 +23,21 @@ func panelTitles(panels []api.Panel) string {
 	return strings.Join(titles, ",")
 }
 
-func dbToMap(target config.Grafana, dashDBs []api.DashDB) (map[string]board, error) {
+func dbToMap(dashboards []api.Dashboard) (map[string]board, error) {
 	m := map[string]board{}
-	for _, item := range dashDBs {
-		dashboard, err := api.GetDashboard(target, item.UID)
+	for _, item := range dashboards {
+		dashboard, err := item.GetJSON()
 		if err != nil {
 			return m, err
 		}
-		m[item.Title] = board{dashDB: item, board: dashboard}
+		m[item.Title] = board{db: item, json: dashboard}
 	}
 	return m, nil
 }
 
 func diffDashboards(server1, server2 config.Grafana) error {
-	dashdb1, err1 := api.GetDashDBs(server1)
-	dashdb2, err2 := api.GetDashDBs(server2)
+	dashdb1, err1 := api.GetDashboards(server1)
+	dashdb2, err2 := api.GetDashboards(server2)
 	if err := errors.Join(err1, err2); err != nil {
 		return err
 	}
@@ -46,8 +46,8 @@ func diffDashboards(server1, server2 config.Grafana) error {
 		slog.Info("Different number of dashboards", server1.Name, len(dashdb1), server2.Name, len(dashdb2))
 		identical = false
 	}
-	dbMap1, err1 := dbToMap(server1, dashdb1)
-	dbMap2, err2 := dbToMap(server2, dashdb2)
+	dbMap1, err1 := dbToMap(dashdb1)
+	dbMap2, err2 := dbToMap(dashdb2)
 	if err := errors.Join(err1, err2); err != nil {
 		return err
 	}
@@ -59,13 +59,15 @@ func diffDashboards(server1, server2 config.Grafana) error {
 			identical = false
 			continue
 		}
-		if len(value1.board.Dashboard.Panels) != len(value2.board.Dashboard.Panels) {
+		panels1 := value1.json.Flatten()
+		panels2 := value2.json.Flatten()
+		if len(panels1) != len(panels2) {
 			slog.Info(
 				"different number of panels", "dashboard", key,
-				"server1_len", len(value1.board.Dashboard.Panels),
-				"server2_len", len(value2.board.Dashboard.Panels),
-				"server1_panels", panelTitles(value1.board.Dashboard.Panels),
-				"server2_panels", panelTitles(value2.board.Dashboard.Panels),
+				"server1_len", len(panels1),
+				"server2_len", len(panels2),
+				"server1_panels", panelTitles(panels1),
+				"server2_panels", panelTitles(panels2),
 			)
 		}
 		delete(dbMap1, key)
