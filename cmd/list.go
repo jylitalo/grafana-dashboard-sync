@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"log/slog"
 
 	"github.com/jylitalo/grafana-dashboard-sync/api"
 	"github.com/jylitalo/grafana-dashboard-sync/config"
@@ -23,14 +22,29 @@ func listCmd() *cobra.Command {
 			}
 			server, ok := cfg[args[0]]
 			if !ok {
-				slog.Error("Server not found from config", "server", server)
+				return fmt.Errorf("server (%s) not found from config", args[0])
 			}
-			ds, err := api.DataSources(server)
+			dashdbs, err := api.GetDashboards(server)
 			if err != nil {
 				return err
 			}
-			out := fmt.Sprintf("%v", ds)
-			slog.Info(out)
+			fmt.Println("Dashboards:")
+			for _, item := range dashdbs {
+				fmt.Printf("DashDB (%s): %v\n", item.Title, item)
+				dboard, err := item.GetJSON()
+				if err != nil {
+					return err
+				}
+				fmt.Printf("Dashboard (%s): %#v\n", item.Title, dboard)
+			}
+			ds, err := api.GetDataSources(server)
+			if err != nil {
+				return err
+			}
+			fmt.Println("Data sources:")
+			for _, item := range ds {
+				fmt.Printf("%v\n", item)
+			}
 			return nil
 		},
 	}

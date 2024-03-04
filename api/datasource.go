@@ -2,36 +2,37 @@ package api
 
 import (
 	"encoding/json"
-	"io"
-	"net/http"
 
 	"github.com/jylitalo/grafana-dashboard-sync/config"
 )
 
+// [
+//
+//	{
+//		"id":4,"uid":"bcd5eed3-7234-49dc-96b7-4acb031759e1","orgId":1,"name":"Jaeger",
+//		"type":"jaeger","typeName":"Jaeger",
+//		"typeLogoUrl":"/public/app/plugins/datasource/jaeger/img/jaeger_logo.svg",
+//		"access":"proxy","url":"http://foo.com/","user":"","database":"","basicAuth":false,
+//		"isDefault":false,
+//		"jsonData":{
+//			"tracesToLogsV2":{
+//				"customQuery":false,
+//				"datasourceUid":"ae732f43-47ae-4862-a3c2-5cbbd4347919"
+//			}
+//		},
+//		"readOnly":false
+//	},
+//	...
+//
+// ]
 type DataSource struct {
 	Name string `json:"name"`
 	Type string `json:"type"`
 	UID  string `json:"uid"`
 }
 
-func DataSources(target config.Grafana) ([]DataSource, error) {
-	bearer := "Bearer " + target.Bearer
-	url := target.URL + "/api/datasources"
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Add("Accept", "application/json")
-	req.Header.Add("Authorization", bearer)
-	req.Header.Add("Content-Type", "application/json")
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
+func GetDataSources(target config.Grafana) ([]DataSource, error) {
+	body, err := getBody(target, "/api/datasources")
 	if err != nil {
 		return nil, err
 	}
