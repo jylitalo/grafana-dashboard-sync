@@ -1,8 +1,12 @@
 module github.com/jylitalo/grafana-dashboard-sync
 
-go 1.21.6
+go 1.22
+
+toolchain go1.22.1
 
 require (
+	github.com/jylitalo/tint v1.0.4
+	github.com/mattn/go-isatty v0.0.17
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.18.2
 )
