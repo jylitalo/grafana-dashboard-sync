@@ -1,0 +1,8 @@
+test:
+  URL: "https://foo.com"
+  Bearer: "glsa_abc"
+prod:
+  URL: "https://bar.com"
+  Bearer: "glsa_123"
+debug: true
+color: false
