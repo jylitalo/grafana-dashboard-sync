@@ -32,45 +32,6 @@ type Dashboard struct {
 	grafana   config.Grafana
 }
 
-// DashDataSource is part of Target
-type DashDataSource struct {
-	Type string `json:"type"`
-	UID  string `json:"uid"`
-}
-
-// Target is part of Panel
-type Target struct {
-	DataSource          DashDataSource `json:"datasource"`
-	DisableTextWrap     bool           `json:"disableTextWrap"`
-	EditorMode          string         `json:"editorMode"`
-	Expr                string         `json:"expr"`
-	FullMetaSearch      bool           `json:"fullMetaSearch"`
-	Hide                interface{}    `json:"hide,omitempty"`
-	IncludeNullMetadata bool           `json:"includeNullMetadata"`
-	Instant             bool           `json:"instant"`
-	Interval            interface{}    `json:"interval,omitempty"`
-	LegendFormat        string         `json:"legendFormat"`
-	Range               bool           `json:"range"`
-	RefId               string         `json:"refId"`
-	UseBackend          bool           `json:"useBackend"`
-}
-
-// Panel is part of DashboardJSON.Dashboard.Panels
-type Panel struct {
-	DataSource    interface{} `json:"datasource,omitempty"` // string or DashDataSource
-	Description   interface{} `json:"description,omitempty"`
-	FieldConfig   interface{} `json:"fieldConfig,omitempty"`
-	Collapsed     interface{} `json:"collapsed,omitempty"`
-	GridPos       interface{} `json:"gridPos"`
-	Id            int         `json:"id"`
-	Options       interface{} `json:"options,omitempty"`
-	PluginVersion string      `json:"pluginVersion,omitempty"`
-	Targets       []Target    `json:"targets,omitempty"`
-	Panels        []Panel     `json:"panels"`
-	Title         string      `json:"title"`
-	Type          string      `json:"type"`
-}
-
 // AnnotationsPermissions is part of DashboardJSON.Meta
 type AnnotationsPermissions struct {
 	CanAdd    bool `json:"canAdd"`
@@ -113,14 +74,16 @@ type DashboardJSON struct {
 	} `json:"meta"`
 	Dashboard struct {
 		Annotations           interface{} `json:"annotations"`
+		Description           string      `json:"description,omitempty"`
 		Editable              bool        `json:"editable"`
 		FiscalYearStartsMonth int         `json:"fiscalYearStartMonth"`
+		GnetId                int         `json:"gnetId,omitempty"`
 		GraphTooltip          int         `json:"graphTooltip"`
 		Id                    int         `json:"id"`
 		Links                 interface{} `json:"links"`
 		LiveNow               bool        `json:"liveNow"`
 		Panels                []Panel     `json:"panels"`
-		Refresh               string      `json:"refresh"`
+		Refresh               interface{} `json:"refresh"`
 		SchemaVersion         int         `json:"schemaVersion"`
 		Tags                  interface{} `json:"tags"`
 		Templating            interface{} `json:"templating"`
@@ -156,6 +119,9 @@ func (board *Dashboard) GetJSON() (DashboardJSON, error) {
 	if err != nil {
 		return DashboardJSON{}, err
 	}
+	// fmt.Println("---")
+	// fmt.Println(string(body))
+	// fmt.Println("---")
 	return parseDashboardJSON(body)
 }
 
@@ -163,63 +129,9 @@ func parseDashboardJSON(body []byte) (DashboardJSON, error) {
 	source := DashboardJSON{}
 	err := json.Unmarshal(body, &source)
 	if err != nil {
-		slog.Error("parseDashboardJSON", "body", body, "err", err)
+		slog.Error("parseDashboardJSON", "body", string(body), "err", err)
 	}
 	return source, err
-}
-
-func (panel *Panel) Flatten() []Panel {
-	flat := []Panel{*panel}
-	if panel.Panels != nil {
-		for _, item := range panel.Panels {
-			flat = append(flat, item.Flatten()...)
-		}
-	}
-	return flat
-}
-
-// ToMarshalJSON deals with the fact that `row` should have
-// `"panels": []` if panels is empty or nil.
-// Otherwise panels should be omitted from output.
-func (panel *Panel) MarshalJSON() ([]byte, error) {
-	if panel.Type == "row" {
-		type Alias Panel
-		if panel.Panels == nil {
-			panel.Panels = []Panel{}
-		}
-		return json.Marshal(&struct {
-			*Alias
-		}{
-			Alias: (*Alias)(panel),
-		})
-	}
-	// cpanel should be copy of Panel without Panels field
-	cpanel := struct {
-		DataSource    interface{} `json:"datasource,omitempty"` // string or DashDataSource
-		Description   interface{} `json:"description,omitempty"`
-		FieldConfig   interface{} `json:"fieldConfig,omitempty"`
-		Collapsed     interface{} `json:"collapsed,omitempty"`
-		GridPos       interface{} `json:"gridPos"`
-		Id            int         `json:"id"`
-		Options       interface{} `json:"options,omitempty"`
-		PluginVersion string      `json:"pluginVersion,omitempty"`
-		Targets       []Target    `json:"targets,omitempty"`
-		Title         string      `json:"title"`
-		Type          string      `json:"type"`
-	}{
-		DataSource:    panel.DataSource,
-		Description:   panel.Description,
-		FieldConfig:   panel.FieldConfig,
-		Collapsed:     panel.Collapsed,
-		GridPos:       panel.GridPos,
-		Id:            panel.Id,
-		Options:       panel.Options,
-		PluginVersion: panel.PluginVersion,
-		Targets:       panel.Targets,
-		Title:         panel.Title,
-		Type:          panel.Type,
-	}
-	return json.Marshal(cpanel)
 }
 
 func (dashboard *DashboardJSON) Flatten() []Panel {

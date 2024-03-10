@@ -26,6 +26,12 @@ var instancesClosed string
 //go:embed test-data/instances_open.json
 var instancesOpen string
 
+//go:embed test-data/app_debug.json
+var appDebug string
+
+//go:embed test-data/kubernetes.json
+var kubernetes string
+
 var treePanelList = []Panel{
 	{Id: 1, Panels: []Panel{{Id: 2}}},
 	{Id: 3, Panels: []Panel{{Id: 4}, {Id: 5}}},
@@ -77,7 +83,7 @@ func TestRealFlattenDashboard(t *testing.T) {
 }
 
 func TestParseDashboardJSON(t *testing.T) {
-	items := []string{instancesClosed, instancesOpen}
+	items := []string{appDebug, instancesClosed, instancesOpen, kubernetes}
 	for idx, item := range items {
 		t.Run(fmt.Sprintf("TestParseDashboardJSON.%d", idx), func(t *testing.T) {
 			inStruct, err := parseDashboardJSON([]byte(item))
