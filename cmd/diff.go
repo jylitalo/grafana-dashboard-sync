@@ -1,13 +1,18 @@
 package cmd
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
+	"os"
 	"strings"
+
+	"github.com/olekukonko/tablewriter"
+	"github.com/spf13/cobra"
 
 	"github.com/jylitalo/grafana-dashboard-sync/api"
 	"github.com/jylitalo/grafana-dashboard-sync/config"
-	"github.com/spf13/cobra"
 )
 
 type board struct {
@@ -35,6 +40,59 @@ func dbToMap(dashboards []api.Dashboard) (map[string]board, error) {
 	return m, nil
 }
 
+func targetsToTableCell(targets []api.Target) string {
+	bytes, _ := json.MarshalIndent(targets, "", " ")
+	lines := strings.Split(string(bytes), "\n")
+	for idx := range lines {
+		if len(lines[idx]) > 50 {
+			lines[idx] = lines[idx][:45] + "..."
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+func diffTargets(dashboard, panel string, one, two []api.Target) {
+	if len(one) != len(two) {
+		slog.Info(
+			"different number of targets", "dashboard", dashboard, "panel", panel,
+			"one_len", len(one),
+			"two_len", len(two),
+		)
+		topic := fmt.Sprintf("%s\nPanel: %s", dashboard, panel)
+		table := tablewriter.NewWriter(os.Stdout)
+		table.SetColMinWidth(0, len(dashboard))
+		table.SetReflowDuringAutoWrap(false)
+		table.SetAutoWrapText(false)
+		table.SetHeader([]string{"Panel", "One", "Two"})
+		table.Append([]string{topic, targetsToTableCell(one), targetsToTableCell(two)})
+		table.Render()
+		return
+	}
+}
+
+func diffPanels(dashboard string, one []api.Panel, two []api.Panel) {
+	if len(one) != len(two) {
+		slog.Info(
+			"different number of panels", "dashboard", dashboard,
+			"server1_len", len(one),
+			"server2_len", len(two),
+			"server1_panels", panelTitles(one),
+			"server2_panels", panelTitles(two),
+		)
+		return
+	}
+	for idx := range one {
+		if one[idx].Title != two[idx].Title {
+			slog.Info(
+				"different panel titles", "dashboard", dashboard, "panel", idx,
+				"one", one[idx].Title,
+				"two", two[idx].Title,
+			)
+		}
+		diffTargets(dashboard, one[idx].Title, one[idx].Targets, two[idx].Targets)
+	}
+}
+
 func diffDashboards(server1, server2 config.Grafana) error {
 	dashdb1, err1 := api.GetDashboards(server1)
 	dashdb2, err2 := api.GetDashboards(server2)
@@ -59,17 +117,7 @@ func diffDashboards(server1, server2 config.Grafana) error {
 			identical = false
 			continue
 		}
-		panels1 := value1.json.Flatten()
-		panels2 := value2.json.Flatten()
-		if len(panels1) != len(panels2) {
-			slog.Info(
-				"different number of panels", "dashboard", key,
-				"server1_len", len(panels1),
-				"server2_len", len(panels2),
-				"server1_panels", panelTitles(panels1),
-				"server2_panels", panelTitles(panels2),
-			)
-		}
+		diffPanels(key, value1.json.Flatten(), value2.json.Flatten())
 		delete(dbMap1, key)
 		delete(dbMap2, key)
 	}
