@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -20,12 +19,17 @@ type board struct {
 	json api.DashboardJSON
 }
 
-func panelTitles(panels []api.Panel) string {
-	titles := []string{}
-	for _, panel := range panels {
-		titles = append(titles, panel.Title)
+type panel struct {
+	panel api.Panel
+	index int
+}
+
+func panelToMap(panels []api.Panel) map[string]panel {
+	m := map[string]panel{}
+	for idx, item := range panels {
+		m[strings.TrimSpace(item.Title)] = panel{index: idx, panel: item}
 	}
-	return strings.Join(titles, ",")
+	return m
 }
 
 func dbToMap(dashboards []api.Dashboard) (map[string]board, error) {
@@ -40,68 +44,81 @@ func dbToMap(dashboards []api.Dashboard) (map[string]board, error) {
 	return m, nil
 }
 
-func targetsToTableCell(targets []api.Target) string {
-	bytes, _ := json.MarshalIndent(targets, "", " ")
-	lines := strings.Split(string(bytes), "\n")
-	for idx := range lines {
-		if len(lines[idx]) > 50 {
-			lines[idx] = lines[idx][:45] + "..."
+func truncLine(cell string) string {
+	if len(cell) > 60 {
+		return cell[:55] + "..."
+	}
+	return cell
+}
+
+func diffTargets(one, two []api.Target) [][]string {
+	if len(one) != len(two) {
+		return [][]string{
+			{"targets mismatch", fmt.Sprintf("#%d", len(one)), fmt.Sprintf("#%d", len(two))},
 		}
 	}
-	return strings.Join(lines, "\n")
-}
-
-func diffTargets(dashboard, panel string, one, two []api.Target) {
-	if len(one) != len(two) {
-		slog.Info(
-			"different number of targets", "dashboard", dashboard, "panel", panel,
-			"one_len", len(one),
-			"two_len", len(two),
-		)
-		topic := fmt.Sprintf("%s\nPanel: %s", dashboard, panel)
-		table := tablewriter.NewWriter(os.Stdout)
-		table.SetColMinWidth(0, len(dashboard))
-		table.SetReflowDuringAutoWrap(false)
-		table.SetAutoWrapText(false)
-		table.SetHeader([]string{"Panel", "One", "Two"})
-		table.Append([]string{topic, targetsToTableCell(one), targetsToTableCell(two)})
-		table.Render()
-		return
-	}
-}
-
-func diffPanels(dashboard string, one []api.Panel, two []api.Panel) {
-	if len(one) != len(two) {
-		slog.Info(
-			"different number of panels", "dashboard", dashboard,
-			"server1_len", len(one),
-			"server2_len", len(two),
-			"server1_panels", panelTitles(one),
-			"server2_panels", panelTitles(two),
-		)
-		return
-	}
+	diff := [][]string{}
 	for idx := range one {
-		if one[idx].Title != two[idx].Title {
-			slog.Info(
-				"different panel titles", "dashboard", dashboard, "panel", idx,
-				"one", one[idx].Title,
-				"two", two[idx].Title,
-			)
+		if one[idx].RefId != two[idx].RefId {
+			diff = append(diff, []string{"refId mismatch", one[idx].RefId, two[idx].RefId})
 		}
-		diffTargets(dashboard, one[idx].Title, one[idx].Targets, two[idx].Targets)
+		if one[idx].Expr != two[idx].Expr {
+			diff = append(diff, []string{
+				fmt.Sprintf("refId: %s expr mismatch", one[idx].RefId),
+				truncLine(one[idx].Expr), truncLine(two[idx].Expr)})
+		}
 	}
+	return diff
+}
+
+func diffPanels(one, two []api.Panel) [][]string {
+	diff := [][]string{}
+	onePanels := panelToMap(one)
+	twoPanels := panelToMap(two)
+	uniqOne := []string{}
+	uniqTwo := []string{}
+	for key := range onePanels {
+		panel1 := onePanels[key]
+		panel2, ok := twoPanels[key]
+		if !ok {
+			uniqOne = append(uniqOne, key)
+			delete(onePanels, key)
+			continue
+		}
+		if panel1.index != panel2.index {
+			diff = append(diff, []string{
+				"Panel: " + panel1.panel.Title + "\nIndex mismatch",
+				fmt.Sprintf("#%d", panel1.index),
+				fmt.Sprintf("#%d", panel2.index),
+			})
+		}
+		for _, row := range diffTargets(panel1.panel.Targets, panel2.panel.Targets) {
+			diff = append(diff, []string{"Panel: " + panel1.panel.Title + "\n" + row[0], row[1], row[2]})
+		}
+		delete(onePanels, key)
+		delete(twoPanels, key)
+	}
+	for key := range twoPanels {
+		uniqTwo = append(uniqTwo, key)
+		delete(twoPanels, key)
+	}
+	if len(uniqOne) > 0 || len(uniqTwo) > 0 {
+		diff = append(diff, []string{"Unique panels", strings.Join(uniqOne, "\n"), strings.Join(uniqTwo, "\n")})
+	}
+	return diff
 }
 
 func diffDashboards(server1, server2 config.Grafana) error {
 	dashdb1, err1 := api.GetDashboards(server1)
 	dashdb2, err2 := api.GetDashboards(server2)
+	uniqOne := []string{}
+	uniqTwo := []string{}
 	if err := errors.Join(err1, err2); err != nil {
 		return err
 	}
 	identical := true
 	if len(dashdb1) != len(dashdb2) {
-		slog.Info("Different number of dashboards", server1.Name, len(dashdb1), server2.Name, len(dashdb2))
+		slog.Warn("Different number of dashboards", server1.Name, len(dashdb1), server2.Name, len(dashdb2))
 		identical = false
 	}
 	dbMap1, err1 := dbToMap(dashdb1)
@@ -109,25 +126,38 @@ func diffDashboards(server1, server2 config.Grafana) error {
 	if err := errors.Join(err1, err2); err != nil {
 		return err
 	}
+	diff := [][]string{}
 	for key, value1 := range dbMap1 {
 		value2, ok := dbMap2[key]
 		if !ok {
-			slog.Info("only in "+server1.Name, "dashboard", key)
+			uniqOne = append(uniqOne, key)
 			delete(dbMap1, key)
 			identical = false
 			continue
 		}
-		diffPanels(key, value1.json.Flatten(), value2.json.Flatten())
+		oneDiff := diffPanels(value1.json.Flatten(), value2.json.Flatten())
+		for _, item := range oneDiff {
+			diff = append(diff, []string{value1.db.Title + "\n" + item[0], item[1], item[2]})
+		}
 		delete(dbMap1, key)
 		delete(dbMap2, key)
 	}
 	for key := range dbMap2 {
-		slog.Info("only in "+server2.Name, "dashboard", key)
+		uniqTwo = append(uniqTwo, key)
 		identical = false
 	}
-	if identical {
+	if identical && len(diff) == 0 {
 		slog.Info("dashboards are identical", server1.Name, server2.Name)
+		return nil
 	}
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader([]string{"", server1.Name, server2.Name})
+	table.SetReflowDuringAutoWrap(false)
+	table.SetAutoWrapText(false)
+	table.SetRowLine(true)
+	table.Append([]string{"Unique Dashboards", strings.Join(uniqOne, "\n"), strings.Join(uniqTwo, "\n")})
+	table.AppendBulk(diff)
+	table.Render()
 	return nil
 }
 
@@ -147,7 +177,7 @@ func diffDatasources(server1, server2 config.Grafana) error {
 	}
 	identical := true
 	if len(ds1) != len(ds2) {
-		slog.Info("Different number of data sources", server1.Name, len(ds1), server2.Name, len(ds2))
+		slog.Warn("Different number of data sources", server1.Name, len(ds1), server2.Name, len(ds2))
 		identical = false
 	}
 	dsMap1 := dsToMap(ds1)
@@ -155,20 +185,20 @@ func diffDatasources(server1, server2 config.Grafana) error {
 	for key, value1 := range dsMap1 {
 		value2, ok := dsMap2[key]
 		if !ok {
-			slog.Info("only in "+server1.Name, "datasource", key)
+			slog.Warn("only in "+server1.Name, "datasource", key)
 			delete(dsMap1, key)
 			identical = false
 			continue
 		}
 		if value1.Type != value2.Type {
-			slog.Info("type mismatch", server1.Name, value1.Type, server2.Name, value2.Type)
+			slog.Warn("type mismatch", server1.Name, value1.Type, server2.Name, value2.Type)
 			identical = false
 		}
 		delete(dsMap1, key)
 		delete(dsMap2, key)
 	}
 	for key := range dsMap2 {
-		slog.Info("only in "+server2.Name, "datasource", key)
+		slog.Warn("only in "+server2.Name, "datasource", key)
 		identical = false
 	}
 	if identical {
