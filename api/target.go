@@ -1,11 +1,5 @@
 package api
 
-// DashDataSource is part of Target
-type DashDataSource struct {
-	Type string `json:"type"`
-	UID  string `json:"uid"`
-}
-
 // Target is part of Panel
 type Target struct {
 	Alias               interface{}    `json:"alias,omitempty"`

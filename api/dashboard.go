@@ -39,6 +39,34 @@ type AnnotationsPermissions struct {
 	CanDelete bool `json:"canDelete"`
 }
 
+// DashDataSource is part of Target and Variable
+type DashDataSource struct {
+	Type string `json:"type"`
+	UID  string `json:"uid"`
+}
+
+// Variable is dashboard variable, part of DashboardJSON
+type Variable struct {
+	Current        interface{}    `json:"current"`
+	DataSource     DashDataSource `json:"datasource"`
+	Definition     string         `json:"definition"`
+	Hide           int            `json:"hide"`
+	IncludeAll     bool           `json:"includeAll"`
+	Label          string         `json:"label,omitempty"`
+	Multi          bool           `json:"multi"`
+	Name           string         `json:"name"`
+	Options        []interface{}  `json:"options"`
+	Query          interface{}    `json:"query"` // can be string or struct with qryType (int), query (string) and refId (string)
+	Refresh        int            `json:"refresh"`
+	Regex          string         `json:"regex"`
+	SkipUrlSync    bool           `json:"skipUrlSync"`
+	Sort           int            `json:"sort"`
+	TagValuesQuery interface{}    `json:"tagValuesQuery,omitempty"`
+	TagsQuery      interface{}    `json:"tagsQuery,omitempty"`
+	Type           string         `json:"type"`
+	UseTags        interface{}    `json:"useTags,omitempty"`
+}
+
 // DashboardJSON is JSON presentation of actual dashboard.
 // You can find examples from
 // - test-data/instances_closed.json
@@ -86,14 +114,16 @@ type DashboardJSON struct {
 		Refresh               interface{} `json:"refresh"`
 		SchemaVersion         int         `json:"schemaVersion"`
 		Tags                  interface{} `json:"tags"`
-		Templating            interface{} `json:"templating"`
-		Time                  interface{} `json:"time"`
-		TimePicker            interface{} `json:"timepicker"`
-		TimeZone              string      `json:"timezone"`
-		Title                 string      `json:"title"`
-		UID                   string      `json:"uid"`
-		Version               int         `json:"version"`
-		WeekStart             string      `json:"weekStart"`
+		Templating            struct {
+			List []Variable `json:"list"`
+		} `json:"templating"`
+		Time       interface{} `json:"time"`
+		TimePicker interface{} `json:"timepicker"`
+		TimeZone   string      `json:"timezone"`
+		Title      string      `json:"title"`
+		UID        string      `json:"uid"`
+		Version    int         `json:"version"`
+		WeekStart  string      `json:"weekStart"`
 	} `json:"dashboard"`
 }
 
