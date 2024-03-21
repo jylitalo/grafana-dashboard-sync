@@ -47,24 +47,24 @@ type DashDataSource struct {
 
 // Variable is dashboard variable, part of DashboardJSON
 type Variable struct {
-	Current        interface{}    `json:"current"`
-	DataSource     DashDataSource `json:"datasource"`
-	Definition     string         `json:"definition"`
-	Hide           int            `json:"hide"`
-	IncludeAll     bool           `json:"includeAll"`
-	Label          string         `json:"label,omitempty"`
-	Multi          bool           `json:"multi"`
-	Name           string         `json:"name"`
-	Options        []interface{}  `json:"options"`
-	Query          interface{}    `json:"query"` // can be string or struct with qryType (int), query (string) and refId (string)
-	Refresh        int            `json:"refresh"`
-	Regex          string         `json:"regex"`
-	SkipUrlSync    bool           `json:"skipUrlSync"`
-	Sort           int            `json:"sort"`
-	TagValuesQuery interface{}    `json:"tagValuesQuery,omitempty"`
-	TagsQuery      interface{}    `json:"tagsQuery,omitempty"`
-	Type           string         `json:"type"`
-	UseTags        interface{}    `json:"useTags,omitempty"`
+	Current        interface{}   `json:"current"`
+	DataSource     interface{}   `json:"datasource"` // can be string or DashDataSoure
+	Definition     string        `json:"definition"`
+	Hide           int           `json:"hide"`
+	IncludeAll     bool          `json:"includeAll"`
+	Label          string        `json:"label,omitempty"`
+	Multi          bool          `json:"multi"`
+	Name           string        `json:"name"`
+	Options        []interface{} `json:"options"`
+	Query          interface{}   `json:"query"` // can be string or struct with qryType (int), query (string) and refId (string)
+	Refresh        int           `json:"refresh"`
+	Regex          string        `json:"regex"`
+	SkipUrlSync    bool          `json:"skipUrlSync"`
+	Sort           int           `json:"sort"`
+	TagValuesQuery interface{}   `json:"tagValuesQuery,omitempty"`
+	TagsQuery      interface{}   `json:"tagsQuery,omitempty"`
+	Type           string        `json:"type"`
+	UseTags        interface{}   `json:"useTags,omitempty"`
 }
 
 // DashboardJSON is JSON presentation of actual dashboard.
