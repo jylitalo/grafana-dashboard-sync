@@ -24,6 +24,49 @@ type panel struct {
 	index int
 }
 
+func varsToMap(vars []api.Variable) map[string]api.Variable {
+	m := map[string]api.Variable{}
+	for _, item := range vars {
+		m[item.Name] = item
+	}
+	return m
+}
+
+func diffVars(one, two []api.Variable) [][]string {
+	if len(one) != len(two) {
+		return [][]string{
+			{"variables mismatch", fmt.Sprintf("#%d", len(one)), fmt.Sprintf("#%d", len(two))},
+		}
+	}
+	oneVars := varsToMap(one)
+	twoVars := varsToMap(two)
+	diff := [][]string{}
+	oneMissing := []string{}
+	twoMissing := []string{}
+	for idx := range oneVars {
+		if _, ok := twoVars[idx]; !ok {
+			oneMissing = append(oneMissing, idx)
+			delete(oneVars, idx)
+			continue
+		}
+		if oneVars[idx].Definition != twoVars[idx].Definition {
+			diff = append(diff, []string{idx + " definitions don't match", oneVars[idx].Definition, twoVars[idx].Definition})
+		}
+		if oneVars[idx].Regex != twoVars[idx].Regex {
+			diff = append(diff, []string{idx + " regex don't match", oneVars[idx].Regex, twoVars[idx].Regex})
+		}
+		delete(oneVars, idx)
+		delete(twoVars, idx)
+	}
+	for idx := range twoVars {
+		twoMissing = append(twoMissing, idx)
+	}
+	if len(oneMissing) > 0 || len(twoMissing) > 0 {
+		diff = append(diff, []string{"unique variables", strings.Join(oneMissing, ","), strings.Join(twoMissing, ",")})
+	}
+	return diff
+}
+
 func panelToMap(panels []api.Panel) map[string]panel {
 	m := map[string]panel{}
 	for idx, item := range panels {
@@ -52,13 +95,19 @@ func truncLine(cell string) string {
 }
 
 func diffTargets(one, two []api.Target) [][]string {
-	if len(one) != len(two) {
-		return [][]string{
-			{"targets mismatch", fmt.Sprintf("#%d", len(one)), fmt.Sprintf("#%d", len(two))},
-		}
-	}
+	oneLen := len(one)
+	twoLen := len(two)
 	diff := [][]string{}
-	for idx := range one {
+	if len(one) != len(two) {
+		diff = append(diff, []string{
+			"targets mismatch", fmt.Sprintf("%d targets", oneLen), fmt.Sprintf("%d targets", twoLen),
+		})
+	}
+	minItems := oneLen
+	if minItems > twoLen {
+		minItems = twoLen
+	}
+	for idx := 0; idx < minItems; idx++ {
 		if one[idx].RefId != two[idx].RefId {
 			diff = append(diff, []string{"refId mismatch", one[idx].RefId, two[idx].RefId})
 		}
@@ -135,7 +184,11 @@ func diffDashboards(server1, server2 config.Grafana) error {
 			identical = false
 			continue
 		}
-		oneDiff := diffPanels(value1.json.Flatten(), value2.json.Flatten())
+		oneDiff := diffVars(value1.json.Dashboard.Templating.List, value2.json.Dashboard.Templating.List)
+		for _, item := range oneDiff {
+			diff = append(diff, []string{value1.db.Title + "\n" + item[0], item[1], item[2]})
+		}
+		oneDiff = diffPanels(value1.json.Flatten(), value2.json.Flatten())
 		for _, item := range oneDiff {
 			diff = append(diff, []string{value1.db.Title + "\n" + item[0], item[1], item[2]})
 		}
