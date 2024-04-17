@@ -94,6 +94,17 @@ func truncLine(cell string) string {
 	return cell
 }
 
+func uniqTargetRefIds(targets []api.Target, start, end int) []string {
+	ret := []string{}
+	if len(targets) < end {
+		return ret
+	}
+	for idx := start; idx < end; idx++ {
+		ret = append(ret, targets[idx].RefId)
+	}
+	return ret
+}
+
 func diffTargets(one, two []api.Target) [][]string {
 	oneLen := len(one)
 	twoLen := len(two)
@@ -103,10 +114,7 @@ func diffTargets(one, two []api.Target) [][]string {
 			"targets mismatch", fmt.Sprintf("%d targets", oneLen), fmt.Sprintf("%d targets", twoLen),
 		})
 	}
-	minItems := oneLen
-	if minItems > twoLen {
-		minItems = twoLen
-	}
+	minItems := min(oneLen, twoLen)
 	for idx := 0; idx < minItems; idx++ {
 		if one[idx].RefId != two[idx].RefId {
 			diff = append(diff, []string{"refId mismatch", one[idx].RefId, two[idx].RefId})
@@ -116,6 +124,12 @@ func diffTargets(one, two []api.Target) [][]string {
 				fmt.Sprintf("refId: %s expr mismatch", one[idx].RefId),
 				truncLine(one[idx].Expr), truncLine(two[idx].Expr)})
 		}
+	}
+	maxItems := max(oneLen, twoLen)
+	onePlus := uniqTargetRefIds(one, minItems, maxItems)
+	twoPlus := uniqTargetRefIds(two, minItems, maxItems)
+	if len(onePlus) > 0 || len(twoPlus) > 0 {
+		diff = append(diff, []string{"unique refIds", strings.Join(onePlus, ","), strings.Join(twoPlus, ",")})
 	}
 	return diff
 }
